@@ -1,6 +1,12 @@
 # Diagram Builder
 
-A web app that converts natural language descriptions into diagrams using Claude AI. Supports export to Mermaid, SVG, PNG, and Visio (.vsdx).
+A web app that converts plain-English descriptions into diagrams using Claude AI. Type what you want, get a live preview, and export to Mermaid, SVG, PNG, or Visio (.vsdx).
+
+## Prerequisites
+
+- Python 3.11+
+- Node.js 18+
+- An [Anthropic API key](https://console.anthropic.com/)
 
 ## Setup
 
@@ -9,8 +15,10 @@ A web app that converts natural language descriptions into diagrams using Claude
 ```bash
 cd backend
 pip install -r requirements.txt
+
 cp ../.env.example .env
-# Edit .env and add your ANTHROPIC_API_KEY
+# Open .env and set ANTHROPIC_API_KEY=your_key_here
+
 uvicorn main:app --reload --port 8000
 ```
 
@@ -24,24 +32,79 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173).
 
+Both servers must be running at the same time. The frontend proxies `/api` requests to the backend automatically.
+
 ## Usage
 
-1. Type a description, e.g. *"A microservices architecture with API gateway, auth service, product service, and PostgreSQL database"*
-2. Click **Generate Diagram**
-3. Export as **Mermaid** (.mmd), **SVG**, **PNG**, or **Visio** (.vsdx)
+1. Enter a plain-English description in the text box, e.g.:
+   > *"A three-tier web architecture with a load balancer, two app servers behind it, and a shared PostgreSQL database"*
+2. Optionally choose a diagram type (Auto-detect works well in most cases)
+3. Click **Generate Diagram** — the diagram appears instantly as a live preview
+4. Export using any of the four buttons:
+   | Format | How |
+   |---|---|
+   | Mermaid (.mmd) | Downloads the raw diagram code |
+   | SVG | Exports the rendered vector image |
+   | PNG | Exports a rasterized image with white background |
+   | Visio (.vsdx) | Server-side export, openable and editable in Microsoft Visio |
 
 ## Diagram types supported
 
-- Flowcharts and workflows
+- Flowcharts and decision trees
 - Network and architecture diagrams
 - Org charts and hierarchies
-- Sequence diagrams
+- Sequence diagrams (system/actor interactions)
 - Class diagrams
-- ER diagrams
+- ER diagrams (database schemas)
 - Mind maps
+
+## How it works
+
+```
+User description
+      │
+      ▼
+Claude AI (claude-sonnet-4-6)
+      │  generates Mermaid.js code
+      ▼
+Browser renders live preview (Mermaid.js)
+      │
+      ├─── SVG / PNG ──► client-side export
+      ├─── Mermaid ────► .mmd file download
+      └─── Visio ──────► FastAPI backend
+                              │  parses Mermaid → nodes & edges
+                              │  BFS layout algorithm assigns positions
+                              │  vsdx library writes .vsdx file
+                              ▼
+                         diagram.vsdx download
+```
+
+## Project structure
+
+```
+diagram_builder/
+├── backend/
+│   ├── main.py             # FastAPI app, API endpoints
+│   ├── ai_service.py       # Claude API integration
+│   ├── mermaid_parser.py   # Extracts nodes/edges from Mermaid code
+│   ├── visio_exporter.py   # Lays out and writes .vsdx files
+│   └── requirements.txt
+└── vite-project/
+    └── src/
+        ├── App.jsx
+        ├── api.js                        # fetch wrappers
+        └── components/
+            ├── DiagramInput.jsx          # description textarea + controls
+            ├── DiagramPreview.jsx        # live Mermaid rendering
+            └── ExportPanel.jsx           # export buttons
+```
 
 ## Stack
 
-- **Backend**: Python + FastAPI + Anthropic SDK
-- **Frontend**: React + Vite + Mermaid.js
-- **Visio export**: `vsdx` Python library
+| Layer | Technology |
+|---|---|
+| AI | Anthropic SDK (`claude-sonnet-4-6`) |
+| Backend | Python, FastAPI, uvicorn |
+| Visio export | `vsdx` Python library |
+| Frontend | React 18, Vite |
+| Diagram rendering | Mermaid.js |
