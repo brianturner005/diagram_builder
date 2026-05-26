@@ -1,14 +1,18 @@
-import anthropic
 import os
+import google.generativeai as genai
 
-_client: anthropic.Anthropic | None = None
+_model = None
 
 
-def _get_client() -> anthropic.Anthropic:
-    global _client
-    if _client is None:
-        _client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-    return _client
+def _get_model() -> genai.GenerativeModel:
+    global _model
+    if _model is None:
+        genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+        _model = genai.GenerativeModel(
+            model_name="gemini-2.0-flash",
+            system_instruction=SYSTEM_PROMPT,
+        )
+    return _model
 
 
 SYSTEM_PROMPT = """You are a diagram specification expert. Given a natural language description, generate valid Mermaid.js diagram code.
@@ -29,22 +33,23 @@ Rules:
 
 
 def generate_diagram(description: str, diagram_type: str = "auto") -> dict:
-    client = _get_client()
+    model = _get_model()
 
     user_message = f"Generate a diagram for: {description}"
     if diagram_type != "auto":
         user_message += f"\n\nUse diagram type: {diagram_type}"
 
-    message = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=2048,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_message}],
-    )
+    response = model.generate_content(user_message)
+    mermaid_code = response.text.strip()
 
-    mermaid_code = message.content[0].text.strip()
+    # Strip accidental markdown fences if the model includes them
+    if mermaid_code.startswith("```"):
+        lines = mermaid_code.splitlines()
+        mermaid_code = "\n".join(
+            line for line in lines if not line.startswith("```")
+        ).strip()
+
     detected_type = _detect_diagram_type(mermaid_code)
-
     return {"mermaid_code": mermaid_code, "diagram_type": detected_type}
 
 
