@@ -1,12 +1,12 @@
 # Diagram Builder
 
-A web app that converts plain-English descriptions into diagrams using Claude AI. Type what you want, get a live preview, and export to Mermaid, SVG, PNG, or Visio (.vsdx).
+A web app that converts plain-English descriptions into diagrams using Google Gemini AI. Type what you want, get a live preview, and export to Mermaid, SVG, PNG, or Visio (.vsdx).
 
 ## Prerequisites
 
 - Python 3.11+
 - Node.js 18+
-- An [Anthropic API key](https://console.anthropic.com/)
+- A [Google Gemini API key](https://aistudio.google.com/apikey) (free)
 
 ## Setup
 
@@ -17,7 +17,7 @@ cd backend
 pip install -r requirements.txt
 
 cp ../.env.example .env
-# Open .env and set ANTHROPIC_API_KEY=your_key_here
+# Open .env and set GEMINI_API_KEY=your_key_here
 
 uvicorn main:app --reload --port 8000
 ```
@@ -64,7 +64,7 @@ Both servers must be running at the same time. The frontend proxies `/api` reque
 User description
       │
       ▼
-Claude AI (claude-sonnet-4-6)
+Google Gemini AI (gemini-2.0-flash)
       │  generates Mermaid.js code
       ▼
 Browser renders live preview (Mermaid.js)
@@ -85,7 +85,7 @@ Browser renders live preview (Mermaid.js)
 diagram_builder/
 ├── backend/
 │   ├── main.py             # FastAPI app, API endpoints
-│   ├── ai_service.py       # Claude API integration
+│   ├── ai_service.py       # Gemini API integration
 │   ├── mermaid_parser.py   # Extracts nodes/edges from Mermaid code
 │   ├── visio_exporter.py   # Lays out and writes .vsdx files
 │   └── requirements.txt
@@ -103,7 +103,7 @@ diagram_builder/
 
 | Layer | Technology |
 |---|---|
-| AI | Anthropic SDK (`claude-sonnet-4-6`) |
+| AI | Google Gemini SDK (`gemini-2.0-flash`) |
 | Backend | Python, FastAPI, uvicorn |
 | Visio export | `vsdx` Python library |
 | Frontend | React 18, Vite |
