@@ -5,9 +5,11 @@ load_dotenv()
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from ai_service import generate_diagram, update_diagram
+from visio_exporter import generate_vsdx
 
 app = FastAPI(title="Diagram Builder API")
 
@@ -28,6 +30,10 @@ class UpdateRequest(BaseModel):
     change_description: str
 
 
+class ExportRequest(BaseModel):
+    drawio_xml: str
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -41,6 +47,21 @@ def generate(req: GenerateRequest):
         return generate_diagram(req.description)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"AI generation failed: {exc}")
+
+
+@app.post("/api/export/visio")
+def export_visio(req: ExportRequest):
+    if not req.drawio_xml.strip():
+        raise HTTPException(status_code=400, detail="No diagram XML provided")
+    try:
+        vsdx_bytes = generate_vsdx(req.drawio_xml)
+        return Response(
+            content=vsdx_bytes,
+            media_type="application/vnd.ms-visio.drawing",
+            headers={"Content-Disposition": "attachment; filename=diagram.vsdx"},
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Export failed: {exc}")
 
 
 @app.post("/api/update")
