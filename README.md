@@ -36,25 +36,32 @@ Open [http://localhost:5173](http://localhost:5173). Both servers must be runnin
 
 ### 1. Create the Azure resource
 
-1. In the [Azure Portal](https://portal.azure.com), create a new **Static Web App**
-2. Connect it to your GitHub repository
-3. Set these build details:
-   - **App location:** `vite-project`
-   - **API location:** `api`
-   - **Output location:** `dist`
-4. Azure will add a `AZURE_STATIC_WEB_APPS_API_TOKEN` secret to your repo automatically
+1. Go to [portal.azure.com](https://portal.azure.com) and search for **Static Web Apps**
+2. Click **Create** and fill in:
+   - **Plan** — Free tier works fine
+   - **Source** — GitHub → authorize → select this repo, branch `main`
+   - **Build preset** — Custom
+   - **App location** — `vite-project`
+   - **API location** — `api`
+   - **Output location** — `dist`
+3. Click **Review + Create**
+
+Azure automatically adds `AZURE_STATIC_WEB_APPS_API_TOKEN` as a secret to your GitHub repo. Until this step is done the workflow will skip the deploy step rather than fail (controlled by `skip_deploy_on_missing_secrets: true` in the workflow file).
 
 ### 2. Add your Gemini API key
 
-In the Azure Portal, go to your Static Web App → **Configuration** → **Application settings** and add:
+In the Azure Portal, go to your Static Web App → **Configuration** → **Application settings** → **Add**:
 
 ```
-GEMINI_API_KEY = your_key_here
+Name:  GEMINI_API_KEY
+Value: your_key_here
 ```
+
+Click **Save**.
 
 ### 3. Deploy
 
-Push to `main` and the GitHub Actions workflow handles the rest. Every push to `main` triggers a new deployment.
+Push any commit to `main` — the GitHub Actions workflow builds the frontend and deploys the Azure Functions automatically. Every subsequent push to `main` redeploys.
 
 ## Usage
 
