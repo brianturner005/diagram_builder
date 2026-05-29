@@ -32,7 +32,7 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173). Both servers must be running at the same time — the frontend proxies `/api` requests to the backend automatically.
 
-## Deploying to Azure Static Web Apps
+## Deploying to Azure Static Web Apps (SWA)
 
 ### 1. Create the Azure resource
 
