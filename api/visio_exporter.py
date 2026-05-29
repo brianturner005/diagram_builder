@@ -4,6 +4,8 @@ import re
 import zipfile
 from xml.etree import ElementTree as ET
 
+from visio_shapes import get_master_id, build_masters_xml
+
 PAGE_W = 11.0   # landscape letter, inches
 PAGE_H = 8.5
 MARGIN = 0.5
@@ -52,11 +54,13 @@ def _parse_drawio(xml_str: str):
 
             s = c['style']
             nodes[cid] = {
-                'label':  c['label'],
+                'label':     c['label'],
+                'style':     s,
                 'x': x, 'y': y, 'w': w, 'h': h,
-                'fill':   _col(s, 'fillColor',   '#dae8fc'),
-                'stroke': _col(s, 'strokeColor', '#6c8ebf'),
-                'font':   _col(s, 'fontColor',   '#000000'),
+                'fill':      _col(s, 'fillColor',   '#dae8fc'),
+                'stroke':    _col(s, 'strokeColor', '#6c8ebf'),
+                'font':      _col(s, 'fontColor',   '#000000'),
+                'master_id': get_master_id(s),
             }
         elif c['edge'] and c['source'] and c['target']:
             edges.append({'src': c['source'], 'tgt': c['target'], 'label': c['label']})
@@ -91,7 +95,6 @@ def _scale(nodes: dict) -> dict:
     out = {}
     for cid, n in nodes.items():
         cx = (n['x'] + n['w'] / 2 - min_x) * s + MARGIN
-        # Visio Y origin is bottom-left; draw.io is top-left — flip it
         cy = PAGE_H - ((n['y'] + n['h'] / 2 - min_y) * s + MARGIN)
         out[cid] = {**n, 'px': cx, 'py': cy, 'pw': n['w'] * s, 'ph': n['h'] * s}
     return out
@@ -105,9 +108,10 @@ def _esc(text: str) -> str:
 
 
 def _shape_xml(vid: int, n: dict) -> str:
+    master_attr = f' Master="{n["master_id"]}"' if n.get('master_id') else ''
     lbl = f'<Text><cp cp="0"/>{_esc(n["label"])}</Text>' if n['label'] else ''
     return (
-        f'<Shape ID="{vid}" Type="Shape" LineStyle="0" FillStyle="0" TextStyle="0">'
+        f'<Shape ID="{vid}"{master_attr} Type="Shape" LineStyle="0" FillStyle="0" TextStyle="0">'
         f'<XForm>'
         f'<PinX>{n["px"]:.4f}</PinX><PinY>{n["py"]:.4f}</PinY>'
         f'<Width>{n["pw"]:.4f}</Width><Height>{n["ph"]:.4f}</Height>'
@@ -181,16 +185,17 @@ def _build_shapes(nodes: dict, edges: list):
 # ── VSDX packaging ────────────────────────────────────────────────────────────
 
 def _pack_vsdx(shapes_xml: str, connects_xml: str) -> bytes:
+    masters_xml = build_masters_xml()
+
     page_xml = f'''\
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <PageContents xmlns="http://schemas.microsoft.com/office/visio/2012/main"
               xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
               xml:space="preserve">
-  <PageSheet UniqueID="{{00000001-0000-0000-0000-000000000001}}"
+  <PageSheet UniqueID="{{00000000-0001-0000-0000-000000000001}}"
              LineStyle="0" FillStyle="0" TextStyle="0">
     <PageProps>
-      <PageWidth>{PAGE_W}</PageWidth>
-      <PageHeight>{PAGE_H}</PageHeight>
+      <PageWidth>{PAGE_W}</PageWidth><PageHeight>{PAGE_H}</PageHeight>
       <PrintPageOrientation>2</PrintPageOrientation>
     </PageProps>
   </PageSheet>
@@ -202,6 +207,26 @@ def _pack_vsdx(shapes_xml: str, connects_xml: str) -> bytes:
   </Connects>
 </PageContents>'''
 
+    document_xml = f'''\
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<VisioDocument xmlns="http://schemas.microsoft.com/office/visio/2012/main"
+               xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+               xml:space="preserve">
+  <DocumentProperties><Creator>Diagram Builder</Creator></DocumentProperties>
+  <DocumentSheet NameU="TheDoc" UniqueID="{{00000000-0002-0000-0000-000000000001}}"
+                 LineStyle="0" FillStyle="0" TextStyle="0"/>
+  <StyleSheets>
+    <StyleSheet ID="0" NameU="Normal" LineStyle="0" FillStyle="0" TextStyle="0"/>
+  </StyleSheets>
+  {masters_xml}
+  <Pages>
+    <Page ID="1" NameU="Page-1" IsCustomName="1" IsCustomNameU="1"
+          ViewScale="1" ViewCenterX="{PAGE_W/2}" ViewCenterY="{PAGE_H/2}">
+      <Rel r:id="rId1"/>
+    </Page>
+  </Pages>
+</VisioDocument>'''
+
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
         zf.writestr('[Content_Types].xml', '''\
@@ -212,7 +237,6 @@ def _pack_vsdx(shapes_xml: str, connects_xml: str) -> bytes:
   <Override PartName="/visio/document.xml" ContentType="application/vnd.ms-visio.drawing.main+xml"/>
   <Override PartName="/visio/pages/page1.xml" ContentType="application/vnd.ms-visio.page+xml"/>
 </Types>''')
-
         zf.writestr('_rels/.rels', '''\
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
@@ -220,26 +244,7 @@ def _pack_vsdx(shapes_xml: str, connects_xml: str) -> bytes:
     Type="http://schemas.microsoft.com/visio/2010/relationships/document"
     Target="visio/document.xml"/>
 </Relationships>''')
-
-        zf.writestr('visio/document.xml', f'''\
-<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<VisioDocument xmlns="http://schemas.microsoft.com/office/visio/2012/main"
-               xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
-               xml:space="preserve">
-  <DocumentProperties><Creator>Diagram Builder</Creator></DocumentProperties>
-  <DocumentSheet NameU="TheDoc" UniqueID="{{00000002-0000-0000-0000-000000000001}}"
-                 LineStyle="0" FillStyle="0" TextStyle="0"/>
-  <StyleSheets>
-    <StyleSheet ID="0" NameU="Normal" LineStyle="0" FillStyle="0" TextStyle="0"/>
-  </StyleSheets>
-  <Pages>
-    <Page ID="1" NameU="Page-1" IsCustomName="1" IsCustomNameU="1"
-          ViewScale="1" ViewCenterX="{PAGE_W/2}" ViewCenterY="{PAGE_H/2}">
-      <Rel r:id="rId1"/>
-    </Page>
-  </Pages>
-</VisioDocument>''')
-
+        zf.writestr('visio/document.xml', document_xml)
         zf.writestr('visio/_rels/document.xml.rels', '''\
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
@@ -247,9 +252,7 @@ def _pack_vsdx(shapes_xml: str, connects_xml: str) -> bytes:
     Type="http://schemas.microsoft.com/visio/2010/relationships/page"
     Target="pages/page1.xml"/>
 </Relationships>''')
-
         zf.writestr('visio/pages/page1.xml', page_xml)
-
         zf.writestr('visio/pages/_rels/page1.xml.rels', '''\
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>''')
