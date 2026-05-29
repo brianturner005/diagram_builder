@@ -5,16 +5,16 @@ import ExportPanel from './components/ExportPanel.jsx'
 import { generateDiagram } from './api.js'
 
 export default function App() {
-  const [mermaidCode, setMermaidCode] = React.useState('')
+  const [drawioXml, setDrawioXml] = React.useState('')
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState(null)
 
-  async function handleGenerate(description, diagramType) {
+  async function handleGenerate(description) {
     setLoading(true)
     setError(null)
     try {
-      const result = await generateDiagram(description, diagramType)
-      setMermaidCode(result.mermaid_code)
+      const result = await generateDiagram(description)
+      setDrawioXml(result.drawio_xml)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -26,7 +26,9 @@ export default function App() {
     <div className="app">
       <header className="app-header">
         <h1 className="app-title">Diagram Builder</h1>
-        <p className="app-subtitle">Describe a diagram in plain English and get it instantly</p>
+        <p className="app-subtitle">
+          Describe your network or infrastructure in plain English and get a diagram instantly
+        </p>
       </header>
 
       <main className="app-main">
@@ -39,9 +41,9 @@ export default function App() {
           </div>
         )}
 
-        <DiagramPreview mermaidCode={mermaidCode} />
+        <DiagramPreview drawioXml={drawioXml} />
 
-        {mermaidCode && <ExportPanel mermaidCode={mermaidCode} />}
+        {drawioXml && <ExportPanel drawioXml={drawioXml} />}
       </main>
     </div>
   )
