@@ -1,7 +1,10 @@
 import React from 'react'
-import { downloadBlob } from '../api.js'
+import { exportVisio, downloadBlob } from '../api.js'
 
 export default function ExportPanel({ drawioXml }) {
+  const [exporting, setExporting] = React.useState(false)
+  const [exportError, setExportError] = React.useState(null)
+
   function downloadDrawio() {
     const blob = new Blob([drawioXml], { type: 'application/xml' })
     downloadBlob(blob, 'diagram.drawio')
@@ -12,6 +15,19 @@ export default function ExportPanel({ drawioXml }) {
     window.open(`https://app.diagrams.net/?xml=${encoded}`, '_blank')
   }
 
+  async function downloadVisio() {
+    setExporting(true)
+    setExportError(null)
+    try {
+      const blob = await exportVisio(drawioXml)
+      downloadBlob(blob, 'diagram.vsdx')
+    } catch (err) {
+      setExportError(err.message)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div className="export-panel">
       <span className="export-label">Export / Edit:</span>
@@ -19,14 +35,22 @@ export default function ExportPanel({ drawioXml }) {
         <button className="export-btn primary" onClick={downloadDrawio}>
           Download .drawio
         </button>
+        <button
+          className="export-btn primary"
+          onClick={downloadVisio}
+          disabled={exporting}
+        >
+          {exporting ? 'Generating…' : 'Download .vsdx'}
+        </button>
         <button className="export-btn" onClick={openInEditor}>
           Open in diagrams.net
         </button>
       </div>
-      <p className="export-hint">
-        .drawio files open in the free <a href="https://app.diagrams.net" target="_blank" rel="noreferrer">diagrams.net</a> app
-        and can be imported directly into Microsoft Visio.
-      </p>
+      {exportError && (
+        <p className="export-hint" style={{ color: '#b85450' }}>
+          Visio export failed: {exportError}
+        </p>
+      )}
     </div>
   )
 }

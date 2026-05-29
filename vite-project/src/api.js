@@ -24,6 +24,19 @@ export async function updateDiagram(existingXml, changeDescription) {
   return res.json()
 }
 
+export async function exportVisio(drawioXml) {
+  const res = await fetch('/api/export', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ drawio_xml: drawioXml }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(err.detail || 'Export failed')
+  }
+  return res.blob()
+}
+
 export function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
