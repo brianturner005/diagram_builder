@@ -7,7 +7,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from ai_service import generate_diagram
+from ai_service import generate_diagram, update_diagram
 
 app = FastAPI(title="Diagram Builder API")
 
@@ -23,6 +23,11 @@ class GenerateRequest(BaseModel):
     description: str
 
 
+class UpdateRequest(BaseModel):
+    existing_xml: str
+    change_description: str
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -32,10 +37,19 @@ def health():
 def generate(req: GenerateRequest):
     if not req.description.strip():
         raise HTTPException(status_code=400, detail="Description cannot be empty")
-
     try:
-        result = generate_diagram(req.description)
+        return generate_diagram(req.description)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"AI generation failed: {exc}")
 
-    return result
+
+@app.post("/api/update")
+def update(req: UpdateRequest):
+    if not req.change_description.strip():
+        raise HTTPException(status_code=400, detail="Change description cannot be empty")
+    if not req.existing_xml.strip():
+        raise HTTPException(status_code=400, detail="No existing diagram to update")
+    try:
+        return update_diagram(req.existing_xml, req.change_description)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"AI update failed: {exc}")
