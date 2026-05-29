@@ -7,12 +7,19 @@ import vsdx
 from mermaid_parser import ParsedDiagram, DiagramNode
 
 # Layout constants (Visio units ≈ inches)
-H_SPACING = 2.2
-V_SPACING = 1.4
+H_SPACING = 2.4
+V_SPACING = 1.5
 NODE_W = 1.8
-NODE_H = 0.8
+NODE_H = 0.75
 MARGIN_X = 1.5
 MARGIN_Y = 9.0  # Visio Y axis is inverted (0 at bottom), so start high
+
+
+def _hex_to_rgb_str(hex_color: str) -> str:
+    """Convert #RRGGBB to 'R, G, B' string for vsdx color format."""
+    hex_color = hex_color.lstrip("#")
+    r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+    return f"#{hex_color.upper()}"
 
 
 def _bfs_layout(nodes: list[DiagramNode], edges) -> dict[str, tuple[float, float]]:
@@ -56,12 +63,18 @@ def _bfs_layout(nodes: list[DiagramNode], edges) -> dict[str, tuple[float, float
     for nid, lyr in layer.items():
         layers.setdefault(lyr, []).append(nid)
 
+    # Center each layer horizontally
+    max_layer_width = max(len(v) for v in layers.values())
     positions: dict[str, tuple[float, float]] = {}
+
     for lyr in sorted(layers.keys()):
         layer_nodes = layers[lyr]
+        total_w = len(layer_nodes) * (NODE_W + H_SPACING) - H_SPACING
+        max_w = max_layer_width * (NODE_W + H_SPACING) - H_SPACING
+        start_x = MARGIN_X + (max_w - total_w) / 2  # center the layer
+
         for col, nid in enumerate(layer_nodes):
-            x = MARGIN_X + col * (NODE_W + H_SPACING)
-            # Visio Y decreases downward from MARGIN_Y
+            x = start_x + col * (NODE_W + H_SPACING)
             y = MARGIN_Y - lyr * (NODE_H + V_SPACING)
             positions[nid] = (x, y)
 
@@ -74,14 +87,13 @@ def export_to_visio(diagram: ParsedDiagram) -> bytes:
 
     positions = _bfs_layout(diagram.nodes, diagram.edges)
 
-    # Use the vsdx media.vsdx as a starting template
     basedir = os.path.dirname(os.path.abspath(vsdx.__file__))
     media_path = os.path.join(basedir, "media", "media.vsdx")
 
     with vsdx.VisioFile(media_path) as vis:
         page = vis.pages[0]
 
-        # Clear all existing template shapes
+        # Clear existing template shapes
         for shape in list(page.child_shapes):
             shape.remove()
 
@@ -91,19 +103,23 @@ def export_to_visio(diagram: ParsedDiagram) -> bytes:
         for node in diagram.nodes:
             x, y = positions.get(node.id, (MARGIN_X, MARGIN_Y))
 
-            # Choose shape based on node type
-            if node.shape == "circle":
-                base = media.circle
-            else:
-                base = media.rectangle  # rectangle, rounded, diamond, cylinder all use rectangle
-
+            base = media.circle if node.shape == "circle" else media.rectangle
             new_shape = base.copy(page)
             new_shape.x = x
             new_shape.y = y
             new_shape.text = node.label
+
+            # Apply fill and text colors
+            try:
+                new_shape.fill_color = node.fill_color
+                new_shape.text_color = "#FFFFFF"
+                new_shape.line_color = _darken_hex(node.fill_color)
+            except Exception:
+                pass  # Color setting is best-effort
+
             shape_map[node.id] = new_shape
 
-        # Add connections between shapes
+        # Add connections
         for edge in diagram.edges:
             src = shape_map.get(edge.source)
             tgt = shape_map.get(edge.target)
@@ -119,3 +135,12 @@ def export_to_visio(diagram: ParsedDiagram) -> bytes:
                 return f.read()
         finally:
             os.unlink(tmp_path)
+
+
+def _darken_hex(hex_color: str, factor: float = 0.7) -> str:
+    """Return a darkened version of a hex color for borders."""
+    hex_color = hex_color.lstrip("#")
+    r = int(int(hex_color[0:2], 16) * factor)
+    g = int(int(hex_color[2:4], 16) * factor)
+    b = int(int(hex_color[4:6], 16) * factor)
+    return f"#{r:02X}{g:02X}{b:02X}"

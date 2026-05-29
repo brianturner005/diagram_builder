@@ -3,8 +3,32 @@ import mermaid from 'mermaid'
 
 mermaid.initialize({
   startOnLoad: false,
-  theme: 'default',
+  theme: 'base',
   securityLevel: 'loose',
+  themeVariables: {
+    primaryColor: '#2E86AB',
+    primaryBorderColor: '#1a5276',
+    primaryTextColor: '#ffffff',
+    lineColor: '#4a5568',
+    secondaryColor: '#EBF5FB',
+    tertiaryColor: '#f0f7ff',
+    fontFamily: '"Segoe UI", system-ui, -apple-system, sans-serif',
+    fontSize: '14px',
+    clusterBkg: '#EBF5FB',
+    clusterBorder: '#AED6F1',
+    edgeLabelBackground: '#ffffff',
+    nodeBorder: '#1a5276',
+    mainBkg: '#2E86AB',
+    nodeTextColor: '#ffffff',
+    titleColor: '#1a3a4a',
+    attributeBackgroundColorEven: '#EBF5FB',
+    attributeBackgroundColorOdd: '#ffffff',
+  },
+  flowchart: {
+    curve: 'basis',
+    padding: 20,
+    useMaxWidth: true,
+  },
 })
 
 let renderCount = 0
