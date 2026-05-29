@@ -1,6 +1,6 @@
 # Diagram Builder
 
-A web app that converts plain-English descriptions into diagrams using Google Gemini AI. Type what you want, get a live preview, and export to Mermaid, SVG, PNG, or Visio (.vsdx).
+A web app that converts plain-English descriptions into network and infrastructure diagrams using Google Gemini AI. Supports Cisco, AWS, Azure, GCP, and Kubernetes icons. Export as `.drawio` for editing in diagrams.net or importing into Visio.
 
 ## Prerequisites
 
@@ -8,7 +8,7 @@ A web app that converts plain-English descriptions into diagrams using Google Ge
 - Node.js 18+
 - A [Google Gemini API key](https://aistudio.google.com/apikey) (free)
 
-## Setup
+## Local Development
 
 ### 1. Backend
 
@@ -19,44 +19,59 @@ pip install -r requirements.txt
 cp ../.env.example .env
 # Open .env and set GEMINI_API_KEY=your_key_here
 
-uvicorn main:app --reload --port 8000
+python -m uvicorn main:app --reload --port 8000
 ```
 
 ### 2. Frontend
 
 ```bash
 cd vite-project
-npm install --legacy-peer-deps
+npm install
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173).
+Open [http://localhost:5173](http://localhost:5173). Both servers must be running at the same time — the frontend proxies `/api` requests to the backend automatically.
 
-Both servers must be running at the same time. The frontend proxies `/api` requests to the backend automatically.
+## Deploying to Azure Static Web Apps
+
+### 1. Create the Azure resource
+
+1. In the [Azure Portal](https://portal.azure.com), create a new **Static Web App**
+2. Connect it to your GitHub repository
+3. Set these build details:
+   - **App location:** `vite-project`
+   - **API location:** `api`
+   - **Output location:** `dist`
+4. Azure will add a `AZURE_STATIC_WEB_APPS_API_TOKEN` secret to your repo automatically
+
+### 2. Add your Gemini API key
+
+In the Azure Portal, go to your Static Web App → **Configuration** → **Application settings** and add:
+
+```
+GEMINI_API_KEY = your_key_here
+```
+
+### 3. Deploy
+
+Push to `main` and the GitHub Actions workflow handles the rest. Every push to `main` triggers a new deployment.
 
 ## Usage
 
-1. Enter a plain-English description in the text box, e.g.:
-   > *"A three-tier web architecture with a load balancer, two app servers behind it, and a shared PostgreSQL database"*
-2. Optionally choose a diagram type (Auto-detect works well in most cases)
-3. Click **Generate Diagram** — the diagram appears instantly as a live preview
-4. Export using any of the four buttons:
-   | Format | How |
-   |---|---|
-   | Mermaid (.mmd) | Downloads the raw diagram code |
-   | SVG | Exports the rendered vector image |
-   | PNG | Exports a rasterized image with white background |
-   | Visio (.vsdx) | Server-side export, openable and editable in Microsoft Visio |
+- **Templates** — click any of the 8 preset cards to generate a diagram instantly
+- **Custom description** — type anything in plain English and click Generate
+- **Update diagram** — once a diagram is on screen, describe a change in the Update panel to modify it in place
+- **Export** — download as `.drawio` (editable in [diagrams.net](https://app.diagrams.net) or importable into Visio), or click **Open in diagrams.net** to edit directly in the browser
 
-## Diagram types supported
+## Supported diagram types
 
-- Flowcharts and decision trees
-- Network and architecture diagrams
-- Org charts and hierarchies
-- Sequence diagrams (system/actor interactions)
-- Class diagrams
-- ER diagrams (database schemas)
-- Mind maps
+- Corporate and home networks (Cisco stencils)
+- AWS architectures (EC2, S3, RDS, Lambda, CloudFront, etc.)
+- Azure deployments (App Service, Functions, SQL, Storage, etc.)
+- GCP infrastructure (Compute Engine, BigQuery, Cloud Run, Pub/Sub, etc.)
+- Kubernetes clusters (pods, deployments, services, ingress, namespaces)
+- DMZ and security architectures
+- Any general network or infrastructure topology
 
 ## How it works
 
@@ -64,47 +79,51 @@ Both servers must be running at the same time. The frontend proxies `/api` reque
 User description
       │
       ▼
-Google Gemini AI (gemini-2.0-flash)
-      │  generates Mermaid.js code
+Google Gemini (gemini-2.5-flash)
+      │  generates draw.io XML with
+      │  real network/cloud icons
       ▼
-Browser renders live preview (Mermaid.js)
-      │
-      ├─── SVG / PNG ──► client-side export
-      ├─── Mermaid ────► .mmd file download
-      └─── Visio ──────► FastAPI backend
-                              │  parses Mermaid → nodes & edges
-                              │  BFS layout algorithm assigns positions
-                              │  vsdx library writes .vsdx file
-                              ▼
-                         diagram.vsdx download
+diagrams.net viewer
+      │  renders live in browser
+      ▼
+Export as .drawio → open in diagrams.net or Visio
 ```
 
 ## Project structure
 
 ```
 diagram_builder/
-├── backend/
-│   ├── main.py             # FastAPI app, API endpoints
-│   ├── ai_service.py       # Gemini API integration
-│   ├── mermaid_parser.py   # Extracts nodes/edges from Mermaid code
-│   ├── visio_exporter.py   # Lays out and writes .vsdx files
+├── api/                        # Azure Functions (production)
+│   ├── function_app.py         # /api/generate and /api/update endpoints
+│   ├── ai_service.py           # Gemini API integration
+│   ├── host.json
 │   └── requirements.txt
-└── vite-project/
-    └── src/
-        ├── App.jsx
-        ├── api.js                        # fetch wrappers
-        └── components/
-            ├── DiagramInput.jsx          # description textarea + controls
-            ├── DiagramPreview.jsx        # live Mermaid rendering
-            └── ExportPanel.jsx           # export buttons
+├── backend/                    # FastAPI server (local development)
+│   ├── main.py
+│   ├── ai_service.py
+│   └── requirements.txt
+├── vite-project/               # React frontend
+│   └── src/
+│       ├── App.jsx
+│       ├── api.js
+│       ├── templates.js
+│       └── components/
+│           ├── DiagramInput.jsx   # textarea + template cards
+│           ├── DiagramPreview.jsx # diagrams.net viewer
+│           ├── UpdatePanel.jsx    # iterative editing
+│           └── ExportPanel.jsx    # download + open in editor
+├── staticwebapp.config.json    # SWA routing config
+└── .github/workflows/
+    └── azure-static-web-apps.yml
 ```
 
 ## Stack
 
 | Layer | Technology |
 |---|---|
-| AI | Google Gemini SDK (`gemini-2.0-flash`) |
-| Backend | Python, FastAPI, uvicorn |
-| Visio export | `vsdx` Python library |
+| AI | Google Gemini SDK (`gemini-2.5-flash`) |
+| Backend (local) | Python, FastAPI, uvicorn |
+| Backend (production) | Python Azure Functions |
 | Frontend | React 18, Vite |
-| Diagram rendering | Mermaid.js |
+| Diagram rendering | diagrams.net embedded viewer |
+| Hosting | Azure Static Web Apps |
