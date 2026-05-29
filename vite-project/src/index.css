@@ -73,9 +73,7 @@ body {
 
 .input-controls {
   display: flex;
-  gap: 0.75rem;
-  align-items: center;
-  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .type-select {
@@ -202,6 +200,29 @@ body {
   color: #374151;
 }
 
+/* Draw.io diagram container */
+.drawio-container {
+  min-height: 480px;
+  width: 100%;
+}
+
+.drawio-container .mxgraph {
+  min-height: 480px;
+}
+
+.preview-footer {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.preview-hint {
+  font-size: 0.8rem;
+  color: #9ca3af;
+}
+
 /* Export panel */
 .export-panel {
   margin-top: 1rem;
@@ -239,7 +260,18 @@ body {
   transition: background 0.12s, border-color 0.12s;
 }
 
-.export-btn:hover:not(:disabled) {
+.export-btn.primary {
+  background: #6366f1;
+  border-color: #6366f1;
+  color: #fff;
+}
+
+.export-btn.primary:hover {
+  background: #4f46e5;
+  border-color: #4f46e5;
+}
+
+.export-btn:hover:not(:disabled):not(.primary) {
   background: #e5e7eb;
   border-color: #6366f1;
   color: #4f46e5;
@@ -250,8 +282,12 @@ body {
   cursor: not-allowed;
 }
 
-.export-error {
-  color: #b91c1c;
-  font-size: 0.82rem;
+.export-hint {
+  font-size: 0.8rem;
+  color: #6b7280;
   width: 100%;
+}
+
+.export-hint a {
+  color: #6366f1;
 }

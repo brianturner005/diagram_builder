@@ -1,59 +1,48 @@
 import React from 'react'
-import mermaid from 'mermaid'
 
-mermaid.initialize({
-  startOnLoad: false,
-  theme: 'base',
-  securityLevel: 'loose',
-  themeVariables: {
-    primaryColor: '#2E86AB',
-    primaryBorderColor: '#1a5276',
-    primaryTextColor: '#ffffff',
-    lineColor: '#4a5568',
-    secondaryColor: '#EBF5FB',
-    tertiaryColor: '#f0f7ff',
-    fontFamily: '"Segoe UI", system-ui, -apple-system, sans-serif',
-    fontSize: '14px',
-    clusterBkg: '#EBF5FB',
-    clusterBorder: '#AED6F1',
-    edgeLabelBackground: '#ffffff',
-    nodeBorder: '#1a5276',
-    mainBkg: '#2E86AB',
-    nodeTextColor: '#ffffff',
-    titleColor: '#1a3a4a',
-    attributeBackgroundColorEven: '#EBF5FB',
-    attributeBackgroundColorOdd: '#ffffff',
-  },
-  flowchart: {
-    curve: 'basis',
-    padding: 20,
-    useMaxWidth: true,
-  },
-})
+let graphCount = 0
 
-let renderCount = 0
-
-export default function DiagramPreview({ mermaidCode }) {
+export default function DiagramPreview({ drawioXml }) {
   const containerRef = React.useRef(null)
-  const [showCode, setShowCode] = React.useState(false)
-  const [renderError, setRenderError] = React.useState(null)
+  const [showXml, setShowXml] = React.useState(false)
 
   React.useEffect(() => {
-    if (!mermaidCode || !containerRef.current) return
+    if (!drawioXml || !containerRef.current) return
 
-    setRenderError(null)
-    const id = `mermaid-${++renderCount}`
+    // Clear previous diagram
+    containerRef.current.innerHTML = ''
 
-    mermaid.render(id, mermaidCode).then(({ svg }) => {
-      if (containerRef.current) {
-        containerRef.current.innerHTML = svg
+    const div = document.createElement('div')
+    div.className = 'mxgraph'
+    div.style.maxWidth = '100%'
+    div.style.border = 'none'
+    div.setAttribute(
+      'data-mxgraph',
+      JSON.stringify({
+        highlight: '#4A90D9',
+        nav: true,
+        resize: true,
+        toolbar: 'zoom layers lightbox',
+        edit: '_blank',
+        xml: drawioXml,
+        'auto-fit': true,
+      })
+    )
+    containerRef.current.appendChild(div)
+
+    // Render: use existing GraphViewer if already loaded, otherwise wait
+    const render = () => {
+      if (window.GraphViewer) {
+        window.GraphViewer.processElements()
       }
-    }).catch((err) => {
-      setRenderError(`Mermaid render error: ${err.message}`)
-    })
-  }, [mermaidCode])
+    }
+    render()
+    // Belt-and-suspenders retry in case the script hadn't finished loading
+    const timer = setTimeout(render, 300)
+    return () => clearTimeout(timer)
+  }, [drawioXml])
 
-  if (!mermaidCode) {
+  if (!drawioXml) {
     return (
       <div className="preview-empty">
         <p>Your diagram will appear here after you generate one.</p>
@@ -63,17 +52,16 @@ export default function DiagramPreview({ mermaidCode }) {
 
   return (
     <div className="preview-panel">
-      <div className="preview-svg" ref={containerRef} />
-      {renderError && <p className="preview-error">{renderError}</p>}
-      <button
-        className="toggle-code-btn"
-        onClick={() => setShowCode((s) => !s)}
-      >
-        {showCode ? 'Hide Mermaid code' : 'Show Mermaid code'}
-      </button>
-      {showCode && (
-        <pre className="mermaid-code">{mermaidCode}</pre>
-      )}
+      <div ref={containerRef} className="drawio-container" />
+      <div className="preview-footer">
+        <button className="toggle-code-btn" onClick={() => setShowXml((s) => !s)}>
+          {showXml ? 'Hide XML' : 'Show XML'}
+        </button>
+        <span className="preview-hint">
+          Use the toolbar above the diagram to zoom and pan
+        </span>
+      </div>
+      {showXml && <pre className="mermaid-code">{drawioXml}</pre>}
     </div>
   )
 }
