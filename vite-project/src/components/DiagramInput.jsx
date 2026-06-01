@@ -1,19 +1,29 @@
 import React from 'react'
 import TEMPLATES from '../templates.js'
 
+const DIAGRAM_TYPES = [
+  { value: 'auto',       label: 'Auto-detect' },
+  { value: 'network',    label: 'Network (Cisco)' },
+  { value: 'aws',        label: 'AWS' },
+  { value: 'azure',      label: 'Azure' },
+  { value: 'gcp',        label: 'GCP' },
+  { value: 'kubernetes', label: 'Kubernetes' },
+]
+
 export default function DiagramInput({ onGenerate, loading }) {
   const [description, setDescription] = React.useState('')
   const [showTemplates, setShowTemplates] = React.useState(true)
+  const [diagramType, setDiagramType] = React.useState('auto')
 
   function handleSubmit(e) {
     e.preventDefault()
-    if (description.trim()) onGenerate(description.trim())
+    if (description.trim()) onGenerate(description.trim(), diagramType)
   }
 
   function handleTemplate(template) {
     setDescription(template.description)
     setShowTemplates(false)
-    onGenerate(template.description)
+    onGenerate(template.description, 'auto')
   }
 
   return (
@@ -57,6 +67,16 @@ export default function DiagramInput({ onGenerate, loading }) {
           disabled={loading}
         />
         <div className="input-controls">
+          <select
+            className="type-select"
+            value={diagramType}
+            onChange={(e) => setDiagramType(e.target.value)}
+            disabled={loading}
+          >
+            {DIAGRAM_TYPES.map((t) => (
+              <option key={t.value} value={t.value}>{t.label}</option>
+            ))}
+          </select>
           <button
             type="submit"
             className="generate-btn"

@@ -170,9 +170,22 @@ Rules:
 # Public functions
 # ---------------------------------------------------------------------------
 
-def generate_diagram(description: str) -> dict:
+_LIBRARY_HINTS = {
+    "network":     "Use Cisco network shapes (routers, switches, firewalls, servers, etc.).",
+    "aws":         "Use AWS shape library icons (EC2, S3, RDS, Lambda, ALB, CloudFront, etc.).",
+    "azure":       "Use Azure shape library icons (VMs, App Services, SQL Database, AKS, etc.).",
+    "gcp":         "Use GCP shape library icons (Compute Engine, Cloud SQL, GKE, Pub/Sub, etc.).",
+    "kubernetes":  "Use Kubernetes shape library icons (Pods, Deployments, Services, Ingress, PVs, etc.).",
+}
+
+
+def generate_diagram(description: str, diagram_type: str = "auto") -> dict:
     model = _get_generate_model()
-    response = model.generate_content(f"Generate a diagram for: {description}")
+    user_msg = f"Generate a diagram for: {description}"
+    hint = _LIBRARY_HINTS.get(diagram_type, "")
+    if hint:
+        user_msg += f"\n{hint}"
+    response = model.generate_content(user_msg)
     return {"drawio_xml": _clean_xml(response.text)}
 
 

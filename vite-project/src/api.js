@@ -1,8 +1,8 @@
-export async function generateDiagram(description) {
+export async function generateDiagram(description, diagramType = 'auto') {
   const res = await fetch('/api/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ description }),
+    body: JSON.stringify({ description, diagram_type: diagramType }),
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }))
