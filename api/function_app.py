@@ -14,7 +14,8 @@ def generate(req: func.HttpRequest) -> func.HttpResponse:
         description = body.get("description", "").strip()
         if not description:
             return _json_response({"detail": "Description cannot be empty"}, 400)
-        return _json_response(generate_diagram(description))
+        diagram_type = body.get("diagram_type", "auto")
+        return _json_response(generate_diagram(description, diagram_type))
     except Exception as exc:
         logging.error("generate failed: %s", exc)
         return _json_response({"detail": f"AI generation failed: {exc}"}, 500)

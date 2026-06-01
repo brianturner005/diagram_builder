@@ -23,6 +23,7 @@ app.add_middleware(
 
 class GenerateRequest(BaseModel):
     description: str
+    diagram_type: str = "auto"
 
 
 class UpdateRequest(BaseModel):
@@ -44,7 +45,7 @@ def generate(req: GenerateRequest):
     if not req.description.strip():
         raise HTTPException(status_code=400, detail="Description cannot be empty")
     try:
-        return generate_diagram(req.description)
+        return generate_diagram(req.description, req.diagram_type)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"AI generation failed: {exc}")
 

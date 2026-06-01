@@ -10,11 +10,11 @@ export default function App() {
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState(null)
 
-  async function handleGenerate(description) {
+  async function handleGenerate(description, diagramType = 'auto') {
     setLoading(true)
     setError(null)
     try {
-      const result = await generateDiagram(description)
+      const result = await generateDiagram(description, diagramType)
       setDrawioXml(result.drawio_xml)
     } catch (err) {
       setError(err.message)
