@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Diagram Builder — Plain English to Architecture Diagrams</title>
+  <meta name="description" content="Generate professional network and infrastructure diagrams from plain English. Cisco, AWS, Azure, GCP, and Kubernetes shapes. Export to draw.io or Visio.">
+  <style>
+    /* ── Tokens ─────────────────────────────────────────────── */
+    :root {
+      --bg:        #f4f9fc;
+      --surface:   #ffffff;
+      --border:    #c5dde8;
+      --text:      #0d1b21;
+      --muted:     #4d7a8c;
+      --accent:    #0a9488;
+      --accent-h:  #07726a;
+      --gold:      #d97706;
+      --dim:       #e6f2f7;
+      --mono: ui-monospace, SFMono-Regular, 'Cascadia Code', Menlo, Monaco, monospace;
+      --sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --r: 6px;
+      --max: 1100px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg:       #0c1a20;
+        --surface:  #13242c;
+        --border:   #1c3540;
+        --text:     #cfe8f3;
+        --muted:    #527d8e;
+        --accent:   #2cd4c7;
+        --accent-h: #22b8ac;
+        --gold:     #f59e0b;
+        --dim:      #0f1f27;
+      }
+    }
+    :root[data-theme="dark"]  { --bg:#0c1a20; --surface:#13242c; --border:#1c3540; --text:#cfe8f3; --muted:#527d8e; --accent:#2cd4c7; --accent-h:#22b8ac; --gold:#f59e0b; --dim:#0f1f27; }
+    :root[data-theme="light"] { --bg:#f4f9fc; --surface:#ffffff; --border:#c5dde8; --text:#0d1b21; --muted:#4d7a8c; --accent:#0a9488; --accent-h:#07726a; --gold:#d97706; --dim:#e6f2f7; }
+
+    /* ── Reset ──────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: var(--sans); background: var(--bg); color: var(--text); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+
+    /* ── Nav ────────────────────────────────────────────────── */
+    .nav {
+      position: sticky; top: 0; z-index: 100;
+      background: color-mix(in srgb, var(--bg) 82%, transparent);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner {
+      max-width: var(--max); margin: 0 auto; padding: 0 2rem;
+      height: 56px; display: flex; align-items: center; justify-content: space-between;
+    }
+    .nav-logo {
+      font-family: var(--mono); font-size: 0.875rem; font-weight: 700;
+      color: var(--text); text-decoration: none; letter-spacing: -0.02em;
+    }
+    .nav-logo span { color: var(--accent); }
+    .nav-right { display: flex; align-items: center; gap: 1.5rem; }
+    .nav-link { color: var(--muted); text-decoration: none; font-size: 0.875rem; transition: color 0.15s; }
+    .nav-link:hover { color: var(--text); }
+
+    /* ── Buttons ────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      background: var(--accent); color: #fff; border: none; border-radius: var(--r);
+      padding: 0.5rem 1.1rem; font-size: 0.875rem; font-weight: 600;
+      cursor: pointer; text-decoration: none; font-family: var(--sans);
+      transition: background 0.15s;
+    }
+    .btn:hover { background: var(--accent-h); }
+    .btn-lg { padding: 0.75rem 1.75rem; font-size: 1rem; }
+    .btn-ghost {
+      background: transparent; color: var(--text); border: 1.5px solid var(--border);
+    }
+    .btn-ghost:hover { background: var(--dim); border-color: var(--muted); }
+    .btn-ghost:hover { background: var(--dim); }
+
+    /* ── Hero ───────────────────────────────────────────────── */
+    .hero {
+      max-width: var(--max); margin: 0 auto;
+      padding: 5rem 2rem 4rem;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center;
+    }
+    .hero-eyebrow {
+      font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--accent); margin-bottom: 1.25rem;
+    }
+    .hero-h1 {
+      font-family: var(--mono); font-size: clamp(1.9rem, 3.8vw, 3rem);
+      font-weight: 700; line-height: 1.15; letter-spacing: -0.03em;
+      text-wrap: balance; margin-bottom: 1.5rem;
+    }
+    .hero-h1 em { font-style: normal; color: var(--accent); }
+    .prompt-wrap {
+      display: flex; align-items: flex-start; gap: 0.6rem;
+      background: var(--surface); border: 1px solid var(--border);
+      border-left: 3px solid var(--accent); border-radius: var(--r);
+      padding: 0.85rem 1rem; margin-bottom: 2rem;
+    }
+    .prompt-sigil {
+      font-family: var(--mono); font-size: 0.8rem; color: var(--accent);
+      margin-top: 1px; flex-shrink: 0; user-select: none; font-weight: 700;
+    }
+    .prompt-text {
+      font-family: var(--mono); font-size: 0.82rem; color: var(--muted);
+      line-height: 1.5; min-height: 1.25em;
+    }
+    .cursor {
+      display: inline-block; width: 2px; height: 0.9em;
+      background: var(--accent); margin-left: 1px; vertical-align: text-bottom;
+      animation: blink 1s step-end infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+    .hero-cta { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+
+    /* ── Diagram mock ───────────────────────────────────────── */
+    .hero-mock {
+      background: #091419; border-radius: 10px;
+      border: 1px solid #1c3a46;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(44,212,199,0.05);
+      overflow: hidden;
+    }
+    .mock-bar {
+      background: #060f13; padding: 0.6rem 1rem;
+      display: flex; align-items: center; gap: 0.45rem;
+      border-bottom: 1px solid #1c3a46;
+    }
+    .mock-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .mock-dot-r { background: #ef4444; opacity: 0.65; }
+    .mock-dot-y { background: #f59e0b; opacity: 0.65; }
+    .mock-dot-g { background: #22c55e; opacity: 0.65; }
+    .mock-label {
+      font-family: var(--mono); font-size: 0.7rem; color: #3d6a7a; margin-left: auto;
+    }
+    .mock-body { padding: 1.5rem 1.75rem 1.75rem; }
+
+    /* ── Section common ─────────────────────────────────────── */
+    .section { max-width: var(--max); margin: 0 auto; padding: 4.5rem 2rem; }
+    .section-eyebrow {
+      font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--accent); margin-bottom: 0.6rem;
+    }
+    .section-h2 {
+      font-size: clamp(1.4rem, 2.8vw, 1.9rem); font-weight: 700;
+      letter-spacing: -0.025em; text-wrap: balance; margin-bottom: 2.5rem;
+    }
+
+    /* ── Features ───────────────────────────────────────────── */
+    .features-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1.25rem; }
+    .feat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 1.75rem;
+    }
+    .feat-icon {
+      width: 38px; height: 38px; border-radius: 7px;
+      background: color-mix(in srgb, var(--accent) 12%, transparent);
+      display: flex; align-items: center; justify-content: center; margin-bottom: 1rem;
+    }
+    .feat-icon svg {
+      width: 18px; height: 18px; stroke: var(--accent); fill: none;
+      stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+    }
+    .feat-card h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.45rem; }
+    .feat-card p { font-size: 0.85rem; color: var(--muted); line-height: 1.65; }
+
+    /* ── Steps ──────────────────────────────────────────────── */
+    .steps-rule { border-top: 1px solid var(--border); }
+    .steps { display: grid; grid-template-columns: repeat(3,1fr); }
+    .step {
+      padding: 2.25rem 2.5rem 2.25rem 0;
+      border-right: 1px solid var(--border);
+    }
+    .step:last-child { border-right: none; padding-right: 0; }
+    .step + .step { padding-left: 2.5rem; }
+    .step-num {
+      font-family: var(--mono); font-size: 0.68rem; font-weight: 700;
+      color: var(--accent); letter-spacing: 0.08em; margin-bottom: 0.85rem;
+    }
+    .step h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.4rem; }
+    .step p { font-size: 0.85rem; color: var(--muted); line-height: 1.65; }
+    .step-eg {
+      margin-top: 0.85rem; background: var(--dim); border: 1px solid var(--border);
+      border-radius: var(--r); padding: 0.55rem 0.75rem;
+      font-family: var(--mono); font-size: 0.73rem; color: var(--muted); line-height: 1.5;
+    }
+
+    /* ── Libraries ──────────────────────────────────────────── */
+    .libraries-stripe {
+      background: var(--dim); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    }
+    .libraries-inner { max-width: var(--max); margin: 0 auto; padding: 2.5rem 2rem; }
+    .libraries-label {
+      font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 1.25rem;
+    }
+    .lib-row { display: flex; flex-wrap: wrap; gap: 0.65rem; }
+    .lib-badge {
+      display: flex; align-items: center; gap: 0.5rem;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 5px; padding: 0.45rem 0.9rem;
+      font-size: 0.85rem; font-weight: 600; color: var(--text);
+    }
+    .lib-pip { width: 8px; height: 8px; border-radius: 50%; }
+
+    /* ── Export ─────────────────────────────────────────────── */
+    .export-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1.25rem; }
+    .exp-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 1.75rem;
+      display: flex; flex-direction: column; gap: 0.45rem;
+    }
+    .exp-ext { font-family: var(--mono); font-size: 1.3rem; font-weight: 700; color: var(--accent); }
+    .exp-card h3 { font-size: 0.95rem; font-weight: 700; }
+    .exp-card p { font-size: 0.83rem; color: var(--muted); line-height: 1.6; }
+
+    /* ── CTA ────────────────────────────────────────────────── */
+    .cta-wrap { max-width: var(--max); margin: 0 auto; padding: 5rem 2rem; text-align: center; }
+    .cta-wrap h2 {
+      font-family: var(--mono); font-size: clamp(1.75rem, 3.5vw, 2.6rem);
+      font-weight: 700; letter-spacing: -0.03em; text-wrap: balance; margin-bottom: 0.85rem;
+    }
+    .cta-wrap p { font-size: 1rem; color: var(--muted); margin-bottom: 2rem; }
+    .cta-row { display: flex; justify-content: center; gap: 0.75rem; flex-wrap: wrap; }
+
+    /* ── Footer ─────────────────────────────────────────────── */
+    .footer { border-top: 1px solid var(--border); }
+    .footer-inner {
+      max-width: var(--max); margin: 0 auto; padding: 1.75rem 2rem;
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 0.82rem; color: var(--muted);
+    }
+    .footer-inner a { color: var(--muted); text-decoration: none; }
+    .footer-inner a:hover { color: var(--text); }
+
+    /* ── Responsive ─────────────────────────────────────────── */
+    @media (max-width: 780px) {
+      .hero { grid-template-columns: 1fr; padding: 3rem 1.5rem 2rem; gap: 2.5rem; }
+      .hero-mock { order: -1; }
+      .features-grid, .steps, .export-grid { grid-template-columns: 1fr; }
+      .step { border-right: none; border-bottom: 1px solid var(--border); padding: 1.5rem 0; }
+      .step:last-child { border-bottom: none; }
+      .step + .step { padding-left: 0; }
+      .footer-inner { flex-direction: column; gap: 0.5rem; text-align: center; }
+      .nav-link.hide-sm { display: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) { .cursor { animation: none; } }
+  </style>
+</head>
+<body>
+
+<!-- ── Nav ──────────────────────────────────────────────────── -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="#" class="nav-logo">diagram<span>_</span>builder</a>
+    <div class="nav-right">
+      <a href="#how-it-works" class="nav-link hide-sm">How it works</a>
+      <a href="#export" class="nav-link hide-sm">Export</a>
+      <a href="https://github.com/brianturner005/diagram_builder" class="nav-link" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://delightful-stone-0e8599310.azurestaticapps.net" class="btn" target="_blank" rel="noopener">Try the app →</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Hero ─────────────────────────────────────────────────── -->
+<section aria-label="Introduction">
+  <div class="hero">
+
+    <div>
+      <p class="hero-eyebrow">// Open source tool</p>
+      <h1 class="hero-h1">From plain English to <em>architecture diagrams.</em></h1>
+
+      <div class="prompt-wrap" aria-label="Example prompts">
+        <span class="prompt-sigil" aria-hidden="true">$</span>
+        <span class="prompt-text" id="typewriter"></span><span class="cursor" aria-hidden="true"></span>
+      </div>
+
+      <div class="hero-cta">
+        <a href="https://delightful-stone-0e8599310.azurestaticapps.net" class="btn btn-lg" target="_blank" rel="noopener">Open the app →</a>
+        <a href="https://github.com/brianturner005/diagram_builder" class="btn btn-lg btn-ghost" target="_blank" rel="noopener">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.604-3.369-1.342-3.369-1.342-.454-1.154-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0 1 12 6.836a9.59 9.59 0 0 1 2.504.337c1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.202 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.936.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.579.688.481C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>
+          View source
+        </a>
+      </div>
+    </div>
+
+    <!-- Diagram mock window -->
+    <div class="hero-mock" role="img" aria-label="Sample three-tier architecture diagram generated by the app">
+      <div class="mock-bar">
+        <div class="mock-dot mock-dot-r"></div>
+        <div class="mock-dot mock-dot-y"></div>
+        <div class="mock-dot mock-dot-g"></div>
+        <span class="mock-label">diagram.drawio</span>
+      </div>
+      <div class="mock-body">
+        <svg width="100%" viewBox="0 0 340 282" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0,0.5 L0,5.5 L7,3 z" fill="#3d6a7a"/>
+            </marker>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="2.5" result="b"/>
+              <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+
+          <!-- Internet cloud -->
+          <ellipse cx="170" cy="26" rx="64" ry="20" fill="#060f13" stroke="#2cd4c7" stroke-width="1.5" filter="url(#glow)"/>
+          <text x="170" y="31" text-anchor="middle" fill="#2cd4c7" font-size="10.5" font-family="monospace" font-weight="600">Internet</text>
+
+          <line x1="170" y1="46" x2="170" y2="68" stroke="#3d6a7a" stroke-width="1.5" marker-end="url(#arr)"/>
+
+          <!-- Firewall -->
+          <rect x="120" y="68" width="100" height="32" rx="4" fill="#060f13" stroke="#f59e0b" stroke-width="1.5"/>
+          <text x="170" y="89" text-anchor="middle" fill="#f59e0b" font-size="10.5" font-family="monospace" font-weight="600">Firewall</text>
+
+          <line x1="170" y1="100" x2="170" y2="122" stroke="#3d6a7a" stroke-width="1.5" marker-end="url(#arr)"/>
+
+          <!-- Load Balancer -->
+          <rect x="100" y="122" width="140" height="32" rx="4" fill="#060f13" stroke="#2cd4c7" stroke-width="1.5" filter="url(#glow)"/>
+          <text x="170" y="143" text-anchor="middle" fill="#2cd4c7" font-size="10.5" font-family="monospace" font-weight="600">Load Balancer</text>
+
+          <!-- Split to two servers -->
+          <line x1="145" y1="154" x2="88"  y2="182" stroke="#3d6a7a" stroke-width="1.5" marker-end="url(#arr)"/>
+          <line x1="195" y1="154" x2="252" y2="182" stroke="#3d6a7a" stroke-width="1.5" marker-end="url(#arr)"/>
+
+          <!-- Web Server 1 -->
+          <rect x="22" y="182" width="132" height="32" rx="4" fill="#060f13" stroke="#60a5fa" stroke-width="1.5"/>
+          <text x="88" y="203" text-anchor="middle" fill="#60a5fa" font-size="10.5" font-family="monospace" font-weight="600">Web Server 1</text>
+
+          <!-- Web Server 2 -->
+          <rect x="186" y="182" width="132" height="32" rx="4" fill="#060f13" stroke="#60a5fa" stroke-width="1.5"/>
+          <text x="252" y="203" text-anchor="middle" fill="#60a5fa" font-size="10.5" font-family="monospace" font-weight="600">Web Server 2</text>
+
+          <!-- To DB -->
+          <line x1="88"  y1="214" x2="155" y2="240" stroke="#3d6a7a" stroke-width="1.5" marker-end="url(#arr)"/>
+          <line x1="252" y1="214" x2="185" y2="240" stroke="#3d6a7a" stroke-width="1.5" marker-end="url(#arr)"/>
+
+          <!-- Database (cylinder) -->
+          <rect x="110" y="246" width="120" height="24" rx="0" fill="#060f13" stroke="#a78bfa" stroke-width="1.5"/>
+          <ellipse cx="170" cy="246" rx="60" ry="10" fill="#060f13" stroke="#a78bfa" stroke-width="1.5"/>
+          <ellipse cx="170" cy="270" rx="60" ry="10" fill="#060f13" stroke="#a78bfa" stroke-width="1.5" clip-path="inset(50% 0 0 0)"/>
+          <text x="170" y="262" text-anchor="middle" fill="#a78bfa" font-size="10.5" font-family="monospace" font-weight="600">PostgreSQL</text>
+        </svg>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── Features ──────────────────────────────────────────────── -->
+<section class="section" aria-labelledby="feat-h">
+  <p class="section-eyebrow">Capabilities</p>
+  <h2 class="section-h2" id="feat-h">Everything you need to diagram faster</h2>
+  <div class="features-grid">
+    <div class="feat-card">
+      <div class="feat-icon">
+        <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </div>
+      <h3>Natural Language Input</h3>
+      <p>Describe your infrastructure in plain English. No diagram syntax, no manual placement — just say what you want.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
+      </div>
+      <h3>Smart Shape Detection</h3>
+      <p>AI selects the right shape library automatically — Cisco for networks, cloud libraries for AWS, Azure, GCP, or Kubernetes. Or pin your choice with the type selector.</p>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">
+        <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      </div>
+      <h3>Iterative Editing</h3>
+      <p>Describe follow-up changes in plain English — "add a Redis cache", "replace the web server with a load balancer" — and the diagram updates in place.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── How it works ───────────────────────────────────────────── -->
+<section class="section" id="how-it-works" aria-labelledby="hiw-h">
+  <p class="section-eyebrow">Process</p>
+  <h2 class="section-h2" id="hiw-h">Three steps from description to diagram</h2>
+  <div class="steps-rule">
+    <div class="steps">
+      <div class="step">
+        <p class="step-num">01 — Describe</p>
+        <h3>Write what you want</h3>
+        <p>Type your infrastructure, network, or architecture in plain English. No special syntax required.</p>
+        <div class="step-eg">"Kubernetes cluster with ingress, two app deployments, and a Redis cache"</div>
+      </div>
+      <div class="step">
+        <p class="step-num">02 — Generate</p>
+        <h3>AI builds the diagram</h3>
+        <p>Gemini selects the right shapes, lays them out with sensible spacing, and connects components with labeled edges.</p>
+      </div>
+      <div class="step">
+        <p class="step-num">03 — Refine &amp; Export</p>
+        <h3>Iterate, then download</h3>
+        <p>Describe changes to update the live diagram, then export as draw.io, Visio, or open directly in diagrams.net.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Shape Libraries ────────────────────────────────────────── -->
+<div class="libraries-stripe">
+  <div class="libraries-inner">
+    <p class="libraries-label">Supported shape libraries</p>
+    <div class="lib-row">
+      <div class="lib-badge"><span class="lib-pip" style="background:#6c8ebf"></span>Cisco / Network</div>
+      <div class="lib-badge"><span class="lib-pip" style="background:#FF9900"></span>AWS</div>
+      <div class="lib-badge"><span class="lib-pip" style="background:#0078D4"></span>Azure</div>
+      <div class="lib-badge"><span class="lib-pip" style="background:#4285F4"></span>GCP</div>
+      <div class="lib-badge"><span class="lib-pip" style="background:#326CE5"></span>Kubernetes</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Export ─────────────────────────────────────────────────── -->
+<section class="section" id="export" aria-labelledby="exp-h">
+  <p class="section-eyebrow">Export</p>
+  <h2 class="section-h2" id="exp-h">Take your diagrams anywhere</h2>
+  <div class="export-grid">
+    <div class="exp-card">
+      <span class="exp-ext">.drawio</span>
+      <h3>draw.io Native</h3>
+      <p>Download the native draw.io XML. Open in any version of draw.io or diagrams.net for full editing.</p>
+    </div>
+    <div class="exp-card">
+      <span class="exp-ext">.vsdx</span>
+      <h3>Microsoft Visio</h3>
+      <p>Server-side conversion to Visio format with 57 mapped master shapes. Opens in Visio without plugins.</p>
+    </div>
+    <div class="exp-card">
+      <span class="exp-ext">↗</span>
+      <h3>Open in diagrams.net</h3>
+      <p>One click to open your diagram in the diagrams.net online editor for advanced layout and styling.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA ────────────────────────────────────────────────────── -->
+<section class="cta-wrap" aria-labelledby="cta-h">
+  <h2 id="cta-h">Build your first diagram.</h2>
+  <p>No account needed. Describe what you want and get a diagram in seconds.</p>
+  <div class="cta-row">
+    <a href="https://delightful-stone-0e8599310.azurestaticapps.net" class="btn btn-lg" target="_blank" rel="noopener">Open Diagram Builder →</a>
+    <a href="https://github.com/brianturner005/diagram_builder" class="btn btn-lg btn-ghost" target="_blank" rel="noopener">GitHub</a>
+  </div>
+</section>
+
+<!-- ── Footer ─────────────────────────────────────────────────── -->
+<footer class="footer">
+  <div class="footer-inner">
+    <span>Diagram Builder — open source</span>
+    <a href="https://github.com/brianturner005/diagram_builder" target="_blank" rel="noopener">github.com/brianturner005/diagram_builder</a>
+  </div>
+</footer>
+
+<script>
+  const PROMPTS = [
+    'Three-tier web app with load balancer, two app servers, and PostgreSQL',
+    'AWS VPC with EC2, RDS, CloudFront, and an Application Load Balancer',
+    'Kubernetes cluster with ingress, two deployments, and a Redis cache',
+    'Corporate DMZ with firewall, web server zone, and internal LAN',
+    'GCP data pipeline with Pub/Sub, Dataflow, BigQuery, and Cloud Storage',
+  ]
+  let pi = 0, ci = 0, del = false
+  const el = document.getElementById('typewriter')
+
+  function tick() {
+    const s = PROMPTS[pi]
+    if (!del) {
+      el.textContent = s.slice(0, ci++)
+      if (ci > s.length) { del = true; setTimeout(tick, 2200); return }
+    } else {
+      el.textContent = s.slice(0, ci--)
+      if (ci < 0) { del = false; pi = (pi + 1) % PROMPTS.length; ci = 0 }
+    }
+    setTimeout(tick, del ? 22 : 50)
+  }
+
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    el.textContent = PROMPTS[0]
+  } else {
+    setTimeout(tick, 700)
+  }
+</script>
+</body>
+</html>
